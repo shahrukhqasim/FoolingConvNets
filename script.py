@@ -6,6 +6,16 @@ import os
 import cv2
 import random
 import labels
+import sys
+
+if not __name__ == '__main__':
+    sys.exit(-1)
+
+if len(sys.argv) != 2:
+    print("Error in arguments")
+    sys.exit(-1)
+
+image_path = sys.argv[1]
 
 cl_value = 1
 
@@ -48,16 +58,14 @@ def reshape_back(the_image):
     the_image = np.squeeze(the_image, axis=0) # [H,W,3]
     return the_image
 
-# Load an image and predict its class (It is Zebra)
-image = cv2.imread('test_image_scorpion.jpg',1)
+image = cv2.imread(image_path,1)
 image = cv2.resize(image, dsize=(227,227))
-# Prints zebra
 logits = model.forward(Variable(torch.FloatTensor(torch.from_numpy(reshape_image(image))))).data.numpy()
 my_label_str = labels.get_label(np.argmax(logits, axis=1)[0])
 print("The class is ", my_label_str)
 
+# Pick second most likely class to fool with
 index_required = np.argsort(logits)[0][998]
-#index_required = 705
 
 the_variable = Variable(torch.FloatTensor(torch.from_numpy(reshape_image(image))))
 
@@ -77,3 +85,5 @@ for i in range(100):
 
 b = list(just_identity.parameters())[0].clone()
 print(torch.equal(a.data, b.data))
+
+# TODO: Add code to predict the other class
