@@ -7,7 +7,7 @@ __all__ = ['AlexNet', 'alexnet']
 
 
 model_urls = {
-    'alexnet': 'alexnet-owt-4df8aa71.pth.1',
+    'alexnet': 'alexnet-owt-4df8aa71.pth',
 }
 
 
