@@ -19,11 +19,10 @@ if len(sys.argv) != 2:
 
 image_path = sys.argv[1]
 
-cl_value = 0.03
-
-class JustIdentity(torch.nn.Module):
+cl_value = 0.003
+class FoolingNoise(torch.nn.Module):
     def __init__(self):
-        super(JustIdentity, self).__init__()
+        super(FoolingNoise, self).__init__()
         self.noise = torch.nn.Parameter(torch.rand(1, 3, 224, 224)/100)
 
     def forward(self, x):
@@ -54,12 +53,6 @@ class FoolLoss(torch.nn.Module):
     def forward(self, x):
         x = self.layer.forward(x)
         return 1 - x[0][self.index]
-
-normalize = transforms.Normalize(
-   mean=[0.485, 0.456, 0.406],
-   std=[0.229, 0.224, 0.225]
-)
-
 
 preprocess = transforms.Compose([
    transforms.Scale(256),
@@ -96,13 +89,11 @@ my_label_str = labels.get_label(np.argmax(logits, axis=1)[0])
 print("The class is ", my_label_str)
 
 # Pick second most likely class to fool with
-index_required = 40#np.argsort(logits)[0][900]
-
+index_required = 183#np.argsort(logits)[0][900]
 the_variable = Variable(torch.FloatTensor(img_tensor))
-
 # The loss function
 criterion = FoolLoss(index_required)
-just_identity = JustIdentity()
+just_identity = FoolingNoise()
 a = list(just_identity.parameters())[0].clone()
 
 optimizer = torch.optim.Adam(just_identity.parameters(), lr=0.01)
