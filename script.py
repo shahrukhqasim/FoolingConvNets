@@ -125,8 +125,8 @@ b = list(just_identity.parameters())[0].clone()
 print(torch.equal(a.data, b.data))
 
 
-required_image = just_identity.noise.float().data + the_variable.data
-logits = model.forward(normalizer_module.forward(Variable(required_image))).data.numpy()
+required_image = just_identity.noise.data + the_variable.data
+logits = model.forward(normalizer_module.forward(just_identity.forward(the_variable))).data.numpy()
 my_label_str = labels.get_label(np.argmax(logits, axis=1)[0])
 
 print("Changed class is ", my_label_str)
