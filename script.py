@@ -7,6 +7,10 @@ import cv2
 import random
 import labels
 import sys
+from PIL import Image
+from torchvision import models, transforms
+
+
 
 if not __name__ == '__main__':
     sys.exit(-1)
@@ -22,10 +26,10 @@ cl_value = 1
 class JustIdentity(torch.nn.Module):
     def __init__(self):
         super(JustIdentity, self).__init__()
-        self.noise = torch.nn.Parameter(torch.rand(1, 3, 227, 227).double())
+        self.noise = torch.nn.Parameter(torch.rand(1, 3, 224, 224))
 
     def forward(self, x):
-        x = torch.clamp(self.noise, -cl_value, cl_value) + x.double()
+        x = torch.clamp(torch.clamp(self.noise, -cl_value, cl_value) + x, 0, 255)
         return x.float()
 
 class FoolLoss(torch.nn.Module):
@@ -37,7 +41,17 @@ class FoolLoss(torch.nn.Module):
         x = self.layer.forward(x)
         return 1 - x[0][self.index]
 
+normalize = transforms.Normalize(
+   mean=[0.485, 0.456, 0.406],
+   std=[0.229, 0.224, 0.225]
+)
 
+preprocess = transforms.Compose([
+   transforms.Scale(256),
+   transforms.CenterCrop(224),
+   transforms.ToTensor(),
+   normalize
+])
 
 model=alexnet(True)
 # We don't require to fine-tune weights of the model
@@ -59,31 +73,47 @@ def reshape_back(the_image):
     return the_image
 
 image = cv2.imread(image_path,1)
-image = cv2.resize(image, dsize=(227,227))
-logits = model.forward(Variable(torch.FloatTensor(torch.from_numpy(reshape_image(image))))).data.numpy()
+image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+image = Image.open(image_path)
+img_tensor = preprocess(image)
+img_tensor.unsqueeze_(0)
+
+logits = model.forward(Variable(torch.FloatTensor(img_tensor))).data.numpy()
 my_label_str = labels.get_label(np.argmax(logits, axis=1)[0])
 print("The class is ", my_label_str)
 
 # Pick second most likely class to fool with
-index_required = np.argsort(logits)[0][998]
+index_required = 65#np.argsort(logits)[0][900]
 
-the_variable = Variable(torch.FloatTensor(torch.from_numpy(reshape_image(image))))
+the_variable = Variable(torch.FloatTensor(img_tensor))
 
 # The loss function
 criterion = FoolLoss(index_required)
 just_identity = JustIdentity()
 a = list(just_identity.parameters())[0].clone()
 
-
 optimizer = torch.optim.Adam(just_identity.parameters(), lr=0.01)
-for i in range(100):
+num_iteration = loss_value = 1
+while loss_value > 0.0001 and num_iteration < 100:
     loss=criterion(model.forward(just_identity.forward(the_variable)))
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
-    print("Loss", loss.data[0])
+    loss_value = loss.data[0]
+    print("Loss", loss_value)
+    num_iteration += 1
+
+if loss_value > 0.0001 and num_iteration < 100:
+    print("Failed to converge")
 
 b = list(just_identity.parameters())[0].clone()
 print(torch.equal(a.data, b.data))
 
-# TODO: Add code to predict the other class
+
+required_image = just_identity.noise.round().float().data + the_variable.data
+print(required_image)
+logits = model.forward(Variable(required_image)).data.numpy()
+my_label_str = labels.get_label(np.argmax(logits, axis=1)[0])
+
+print("Changed class is ", my_label_str)
